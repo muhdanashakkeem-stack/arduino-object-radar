@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arduino Radar - Admin Dashboard</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="admin-container">
+    <div class="header">
+        <h1>⚙ Object Radar Admin</h1>
+        <a href="/" class="back-link">← Return to Radar Display</a>
+    </div>
+
+    <!-- Hardware & Connection Status -->
+    <div class="card">
+        <div class="card-title">Hardware & Serial Connection</div>
+        <div class="grid-stats">
+            <div class="stat-box">
+                <div class="stat-label">Connection Status</div>
+                <div class="stat-value" id="status-conn">Checking...</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Detected Serial Port</div>
+                <div class="stat-value" id="status-port">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Baud Rate</div>
+                <div class="stat-value" id="status-baud">9600</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">API Status</div>
+                <div class="stat-value" id="status-api">Online</div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="btn-admin-connect" class="btn btn-primary">⚡ Connect Arduino (POST /api/connect)</button>
+            <button id="btn-admin-disconnect" class="btn btn-danger">⏹ Disconnect (POST /api/disconnect)</button>
+            <button id="btn-admin-simulate" class="btn" style="background: #238636; color: #ffffff;">▶ Toggle Demo Simulation</button>
+        </div>
+    </div>
+
+    <!-- Live Telemetry Monitor -->
+    <div class="card">
+        <div class="card-title">Live Sensor Telemetry</div>
+        <div class="grid-stats">
+            <div class="stat-box">
+                <div class="stat-label">Raw Sensor Angle</div>
+                <div class="stat-value" id="tele-angle">--°</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Mirrored Display Angle</div>
+                <div class="stat-value" id="tele-display-angle">--°</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Measured Distance</div>
+                <div class="stat-value" id="tele-dist">-- cm</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Warning Flag (≤ 20cm)</div>
+                <div class="stat-value" id="tele-warn">--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Communication Activity Log -->
+    <div class="card">
+        <div class="card-title">Activity Log</div>
+        <div id="admin-log" class="log-console">Initializing admin dashboard...</div>
+    </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
