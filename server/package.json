@@ -1,0 +1,14 @@
+{
+  "name": "arduino-object-radar-server",
+  "version": "1.0.0",
+  "description": "Node.js Express & SerialPort Backend for Arduino UNO Object Radar",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0"
+  }
+}

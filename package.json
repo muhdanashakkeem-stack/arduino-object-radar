@@ -1,0 +1,25 @@
+{
+  "name": "arduino-object-radar",
+  "version": "1.0.0",
+  "description": "Complete Node.js Express & SerialPort implementation of Arduino UNO Object Radar",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "npm --prefix server start",
+    "install-server": "npm --prefix server install"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0"
+  },
+  "keywords": [
+    "arduino",
+    "radar",
+    "express",
+    "serialport",
+    "ultrasonic",
+    "hc-sr04",
+    "sg90"
+  ]
+}
