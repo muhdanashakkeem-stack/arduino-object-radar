@@ -1,0 +1,21 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://arduino-object-radar.onrender.com/api/:path*"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/public/admin/:path*"
+    },
+    {
+      "source": "/admin",
+      "destination": "/public/admin/index.html"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/public/:path*"
+    }
+  ]
+}

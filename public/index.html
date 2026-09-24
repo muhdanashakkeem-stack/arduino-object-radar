@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ultrasonic Object Radar</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="container">
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <div class="radar-title">OBJECT RADAR</div>
+
+        <div class="top-actions">
+            <!-- COMPACT BLUE CONNECT BUTTON (F5/F4 text hidden) -->
+            <button id="btn-connect" type="button" title="Connect to Arduino (F5 or F4)">
+                <span id="btn-connect-icon">⚡</span>
+                <span id="btn-connect-text">CONNECT</span>
+            </button>
+
+            <!-- CONNECTION STATUS BADGE -->
+            <div id="connection-status">● Disconnected</div>
+        </div>
+    </div>
+
+    <!-- Warning / Status Banner -->
+    <div id="warning-box" class="safe">WAITING FOR ARDUINO...</div>
+
+    <!-- Error / Toast Notification -->
+    <div id="toast-message">Arduino not found. Please connect the USB cable.</div>
+
+    <!-- Canvas Viewport -->
+    <div id="canvas-wrapper">
+        <canvas id="radar-canvas"></canvas>
+    </div>
+
+    <!-- Bottom Readout -->
+    <div id="bottom-bar">
+        <div class="data-card">
+            <span class="data-label">Servo Angle</span>
+            <span class="data-value" id="val-angle">0°</span>
+        </div>
+        <div class="data-card distance-card" id="card-distance">
+            <span class="data-label">Current Distance</span>
+            <span class="data-value" id="val-distance">-- cm</span>
+        </div>
+        <div class="data-card">
+            <span class="data-label">Detection Status</span>
+            <span class="data-value" id="val-status" style="font-size: clamp(12px, 2vw, 16px); margin-top: 2px;">CLEAR</span>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="radar.js"></script>
+</body>
+</html>
