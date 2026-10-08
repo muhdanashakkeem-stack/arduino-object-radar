@@ -1,3 +1,4 @@
+require("dotenv").config({ path: '../.env' });
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -10,19 +11,52 @@ const FRONTEND_ORIGIN = "https://arduino-object-radar.vercel.app";
 
 app.use(cors({
   origin: FRONTEND_ORIGIN,
-  methods: ["GET", "POST"]
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 const io = new Server(server, { 
   cors: { origin: FRONTEND_ORIGIN, methods: ["GET", "POST"] }
 });
 
+let activeUsers = 0;
+let lastTelemetry = { angle: 0, distance: 0, connected: false, warning: false, time: null };
+
 io.on("connection", socket => {
-  console.log("Client connected:", socket.id);
-  socket.on("radar-data", data => socket.broadcast.emit("update-radar", data));
+  activeUsers++;
+  console.log("Client connected:", socket.id, "- Total active:", activeUsers);
+  
+  socket.on("radar-data", data => {
+    lastTelemetry = { ...data, time: new Date().toISOString() };
+    socket.broadcast.emit("update-radar", data);
+  });
+  
+  socket.on("disconnect", () => {
+    activeUsers--;
+  });
 });
 
 app.use(express.json());
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
+function requireAdmin(req, res, next) {
+    const auth = req.headers.authorization || "";
+    if (auth.replace("Bearer ", "") === ADMIN_PASSWORD) {
+        next();
+    } else {
+        res.status(401).json({ error: "Unauthorized access to Admin API" });
+    }
+}
+
+app.get("/api/admin/status", requireAdmin, (req, res) => {
+    res.json({
+        ok: true,
+        activeUsers,
+        lastTelemetry,
+        service: "Online"
+    });
+});
 
 app.post("/api/telemetry", (req, res) => {
   const { angle, distance, connected } = req.body;
@@ -35,7 +69,7 @@ app.post("/api/telemetry", (req, res) => {
     angle,
     distance,
     connected: Boolean(connected),
-    warning: distance <= 20
+    warning: distance >= 70 && distance <= 80
   });
   
   res.json({ ok: true });

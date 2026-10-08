@@ -35,31 +35,12 @@
                 <div class="stat-value" id="status-api">Online</div>
             </div>
         </div>
-
-        <div class="button-group">
-            <button id="btn-admin-connect" class="btn btn-primary">⚡ Connect Arduino (POST /api/connect)</button>
-            <button id="btn-admin-disconnect" class="btn btn-danger">⏹ Disconnect (POST /api/disconnect)</button>
-        </div>
-    </div>
-
-    <!-- Live Telemetry Monitor -->
-    <div class="card">
-        <div class="card-title">Live Sensor Telemetry</div>
-        <div class="grid-stats">
-            <div class="stat-box">
-                <div class="stat-label">Raw Sensor Angle</div>
-                <div class="stat-value" id="tele-angle">--°</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">Mirrored Display Angle</div>
-                <div class="stat-value" id="tele-display-angle">--°</div>
-            </div>
             <div class="stat-box">
                 <div class="stat-label">Measured Distance</div>
                 <div class="stat-value" id="tele-dist">-- cm</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">Warning Flag (≤ 20cm)</div>
+                <div class="stat-label">Warning Flag (70-80cm)</div>
                 <div class="stat-value" id="tele-warn">--</div>
             </div>
         </div>

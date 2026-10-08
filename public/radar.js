@@ -13,9 +13,8 @@ const btnConnectText = document.getElementById('btn-connect-text');
 const toastMessage = document.getElementById('toast-message');
 
 // Radar Geometry Constants
-const MAX_DISTANCE = 30; // 30 cm maximum radar display radius
-const DETECT_THRESHOLD = 30; // Object detection boundary
-const WARNING_THRESHOLD = 20; // Critical warning threshold (<= 20cm)
+const MAX_DISTANCE = 100; // 100 cm maximum radar display radius
+const DETECT_THRESHOLD = 100; // Object detection boundary
 const TRAIL_FADE_SEC = 2.5; // Seconds for radar sweep trail persistence
 
 // Live sweep trail history
@@ -183,33 +182,44 @@ function drawRadar() {
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, redRadius, startRad, endRad, true);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 17, 51, 0.72)';
+        
+        let fanFill = 'rgba(0, 255, 85, 0.4)';
+        let fanStroke = '#00ff55';
+        if (liveData.warningLevel === 'dark') {
+            fanFill = 'rgba(139, 0, 0, 0.8)';
+            fanStroke = '#8b0000';
+        } else if (liveData.warningLevel === 'light') {
+            fanFill = 'rgba(255, 120, 120, 0.6)';
+            fanStroke = '#ff7878';
+        }
+        
+        ctx.fillStyle = fanFill;
         ctx.fill();
 
-        ctx.strokeStyle = '#ff1133';
+        ctx.strokeStyle = fanStroke;
         ctx.lineWidth = 2.4;
-        ctx.shadowColor = '#ff1133';
+        ctx.shadowColor = fanStroke;
         ctx.shadowBlur = 12;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // C. Warning Badge inside 20° Sector if within danger threshold (<= 20cm)
-        if (curDist <= WARNING_THRESHOLD || liveData.warning) {
-            const warnMidDist = Math.max(8, Math.min(curDist * 0.52, curDist - 4));
+        // C. Warning Badge inside 20° Sector if within danger threshold
+        if (liveData.warningLevel === 'dark' || liveData.warningLevel === 'light') {
+            const warnMidDist = Math.max(20, Math.min(curDist * 0.52, curDist - 4));
             const warnPt = polarToCartesian(displayAngle, warnMidDist);
 
             ctx.save();
             ctx.translate(warnPt.x, warnPt.y);
 
-            const warnText = (curDist <= WARNING_THRESHOLD) ? "⚠ DANGER <20cm" : "⚠ WARNING";
+            const warnText = liveData.warningLevel === 'dark' ? "⚠ < 30cm" : "⚠ 30-70cm";
             const badgeFont = `bold ${Math.max(9, dynamicFontSize - 2)}px Arial`;
             ctx.font = badgeFont;
             const textMetrics = ctx.measureText(warnText);
             const badgeW = textMetrics.width + 10;
             const badgeH = Math.max(16, dynamicFontSize + 4);
 
-            ctx.fillStyle = "rgba(180, 10, 25, 0.92)";
-            ctx.strokeStyle = "#ff3344";
+            ctx.fillStyle = liveData.warningLevel === 'dark' ? "rgba(139, 0, 0, 0.95)" : "rgba(255, 120, 120, 0.95)";
+            ctx.strokeStyle = liveData.warningLevel === 'dark' ? "#ff3344" : "#ffffff";
             ctx.lineWidth = 1.4;
             ctx.shadowColor = "#ff1133";
             ctx.shadowBlur = 12;
@@ -237,13 +247,13 @@ function drawRadar() {
 
         ctx.beginPath();
         ctx.arc(objPt.x, objPt.y, Math.max(7, radius * 0.028), 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 17, 51, 0.4)';
+        ctx.fillStyle = fanFill;
         ctx.fill();
 
         ctx.beginPath();
         ctx.arc(objPt.x, objPt.y, Math.max(5, radius * 0.018), 0, Math.PI * 2);
-        ctx.fillStyle = '#ff1133';
-        ctx.shadowColor = '#ff1133';
+        ctx.fillStyle = fanStroke;
+        ctx.shadowColor = fanStroke;
         ctx.shadowBlur = 18;
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -263,9 +273,9 @@ function drawRadar() {
 
     // -------------------------------------------------------------
     // 3. DRAW RADAR GRID (Concentric Distance Rings & Labels)
-    // 10cm, 20cm, 30cm
+    // 20cm, 40cm, 60cm, 80cm, 100cm
     // -------------------------------------------------------------
-    const distanceRings = [10, 20, 30];
+    const distanceRings = [20, 40, 60, 80, 100];
     for (let i = 0; i < distanceRings.length; i++) {
         const ringDist = distanceRings[i];
         const ringRadius = ringDist * scale;
@@ -388,7 +398,7 @@ try {
         liveData.angle = data.angle;
         liveData.distance = data.distance;
         liveData.connected = true; // Actively receiving cloud data
-        liveData.warning = data.distance <= WARNING_THRESHOLD;
+        liveData.warning = data.distance < 70;
         
         updateDataUI(liveData);
         updateConnectionUI(true, '● Receiving Cloud Data');
@@ -397,6 +407,9 @@ try {
     console.warn('Socket.io not loaded or connection failed');
 }
 
+// Buzzer Master Switch
+let isBuzzerEnabled = true;
+
 /**
  * Update UI state based on live sensor data
  */
@@ -404,41 +417,37 @@ function updateDataUI(data) {
     const sensorAngle = data.angle || 0;
     const displayAngle = Math.max(0, Math.min(180, 180 - sensorAngle));
 
-    // Update trail only when connected
     if (data.connected) {
-        trailHistory.push({
-            angle: displayAngle,
-            time: Date.now()
-        });
-
-        if (trailHistory.length > 60) {
-            trailHistory.shift();
-        }
+        trailHistory.push({ angle: displayAngle, time: Date.now() });
+        if (trailHistory.length > 60) trailHistory.shift();
     }
 
-    // Angle Display
     elAngle.textContent = `${Math.round(displayAngle)}°`;
-
     const isDetected = data.connected && (data.distance > 0 && data.distance <= DETECT_THRESHOLD);
 
-    // Distance & Warning Display
     if (isDetected) {
         elDistance.textContent = `${data.distance.toFixed(1)} cm`;
         elDistance.classList.add('detected');
         if (cardDistance) cardDistance.classList.add('detected');
 
-        if (data.distance <= WARNING_THRESHOLD || data.warning) {
+        if (data.warningLevel === 'dark') {
             elStatus.textContent = 'DANGER';
             elStatus.style.color = '#ff1133';
-
+            let warnMsg = data.distance < 30 ? "⚠ DANGER < 30cm (HIGH ALARM)" : "⚠ DANGER < 70cm (LIGHT ALARM)";
             elWarning.className = 'alert';
-            elWarning.innerHTML = `⚠ DANGER &lt;20cm &nbsp;|&nbsp; Angle: ${Math.round(displayAngle)}° &nbsp;|&nbsp; Distance: ${data.distance.toFixed(1)} cm`;
-        } else {
-            elStatus.textContent = 'DETECTED';
+            elWarning.innerHTML = `${warnMsg} &nbsp;|&nbsp; Angle: ${Math.round(displayAngle)}° &nbsp;|&nbsp; Distance: ${data.distance.toFixed(1)} cm`;
+        } 
+        else if (data.warningLevel === 'light') {
+            elStatus.textContent = 'WARNING';
             elStatus.style.color = '#ffaa00';
-
             elWarning.className = 'alert';
-            elWarning.innerHTML = `⚠ OBJECT DETECTED IN 20° SECTOR &nbsp;|&nbsp; Angle: ${Math.round(displayAngle)}° &nbsp;|&nbsp; Distance: ${data.distance.toFixed(1)} cm`;
+            elWarning.innerHTML = `⚠ WARNING < 70cm &nbsp;|&nbsp; Angle: ${Math.round(displayAngle)}° &nbsp;|&nbsp; Distance: ${data.distance.toFixed(1)} cm`;
+        } 
+        else {
+            elStatus.textContent = 'DETECTED';
+            elStatus.style.color = '#4ade80';
+            elWarning.className = 'safe';
+            elWarning.innerHTML = `OBJECT AT SAFE DISTANCE &nbsp;|&nbsp; Angle: ${Math.round(displayAngle)}° &nbsp;|&nbsp; Distance: ${data.distance.toFixed(1)} cm`;
         }
     } else {
         if (data.connected && data.distance > 0 && data.distance < 400) {
@@ -543,23 +552,97 @@ async function readSerialStream() {
     updateConnectionUI(false, "● Disconnected");
 }
 
+let lastBuzzerLevel = -1;
+let isWritingToSerial = false;
+
+async function sendBuzzerCommand(level) {
+    if (!serialPort || !serialPort.writable || isWritingToSerial) return;
+    try {
+        isWritingToSerial = true;
+        const writer = serialPort.writable.getWriter();
+        await writer.write(new TextEncoder().encode(level + "\n"));
+        writer.releaseLock();
+    } catch (err) {
+        console.error("Buzzer write error:", err);
+    } finally {
+        isWritingToSerial = false;
+    }
+}
+
 function processArduinoLine(line) {
-    const p = line.split(",");
-    if (p.length !== 2) return;
-    const angle = Number(p[0]);
-    const distance = Number(p[1]);
+    let angle = 0;
+    let distance = 0;
+
+    // Helper to auto-sweep the radar angle since Arduino isn't sending it
+    function updateFakeAngle() {
+        if (typeof window.fakeAngle === 'undefined') {
+            window.fakeAngle = 0;
+            window.fakeDirection = 5;
+        }
+        window.fakeAngle += window.fakeDirection;
+        if (window.fakeAngle >= 180) {
+            window.fakeAngle = 180;
+            window.fakeDirection = -5;
+        } else if (window.fakeAngle <= 0) {
+            window.fakeAngle = 0;
+            window.fakeDirection = 5;
+        }
+        return window.fakeAngle;
+    }
+
+    if (line.includes(",")) {
+        const p = line.split(",");
+        if (p.length !== 2) return;
+        angle = Number(p[0]);
+        distance = Number(p[1]);
+    } 
+    else if (line.toLowerCase().includes("distance")) {
+        const distMatch = line.match(/Distance:\s*([0-9.]+)/i);
+        if (!distMatch) return;
+        distance = Number(distMatch[1]);
+        angle = updateFakeAngle();
+    } 
+    else if (line.toLowerCase().includes("no echo")) {
+        // Even if no object is seen, keep sweeping the radar!
+        distance = 400; // Fake distance out of range
+        angle = updateFakeAngle();
+    }
+    else {
+        return; // Unrecognized format, ignore
+    }
+
     if (!Number.isFinite(angle) || !Number.isFinite(distance)) return;
     
     liveData.angle = angle;
     liveData.distance = distance;
     liveData.connected = true;
-    liveData.warning = distance <= WARNING_THRESHOLD;
+    
+    // Danger parsing
+    if (distance < 30) {
+        liveData.warningLevel = 'dark';
+    } else if (distance < 70) {
+        liveData.warningLevel = 'light';
+    } else {
+        liveData.warningLevel = 'none';
+    }
+    
+    // Trigger Buzzer via Web Serial Web API if master switch is ON
+    let currentBuzzer = 0; // Off
+    if (isBuzzerEnabled) {
+        if (distance < 30) currentBuzzer = 2; // High sound
+        else if (distance < 70) currentBuzzer = 1; // Light sound
+    }
+    
+    if (currentBuzzer !== lastBuzzerLevel) {
+        sendBuzzerCommand(currentBuzzer);
+        lastBuzzerLevel = currentBuzzer;
+    }
     
     updateDataUI(liveData);
 
     // Optional cloud relay: broadcast data to other viewers via Render backend
     if (socket && socket.connected) {
-        socket.emit("radar-data", { angle, distance });
+        socket.emit("radar-data", { angle, distance, warningLevel: liveData.warningLevel });
     }
 }
 
@@ -570,6 +653,20 @@ async function requestConnect() {
     connectArduino();
 }
 
+// BUZZER TOGGLE BUTTON
+const btnBuzzer = document.getElementById('btn-buzzer');
+if (btnBuzzer) {
+    btnBuzzer.addEventListener('click', () => {
+        isBuzzerEnabled = !isBuzzerEnabled;
+        btnBuzzer.textContent = isBuzzerEnabled ? "AUTO BUZZER: ON" : "AUTO BUZZER: OFF";
+        btnBuzzer.style.background = isBuzzerEnabled ? "#555" : "#a33";
+        if (!isBuzzerEnabled) {
+            sendBuzzerCommand(0); // Turn it off immediately
+            lastBuzzerLevel = 0;
+        }
+    });
+}
+
 /**
  * KEYBOARD SHORTCUTS (F5, F4 for Connect, F3 for Hidden Admin)
  */
@@ -577,8 +674,14 @@ window.addEventListener('keydown', (event) => {
     // F3 Hidden Admin Panel Trigger
     if (event.key === 'F3' || event.code === 'F3' || event.keyCode === 114) {
         event.preventDefault();
-        console.log('[Shortcut] F3 pressed: Opening Admin Panel...');
-        window.location.href = '/admin';
+        console.log('[Shortcut] F3 pressed: Requesting Admin Access...');
+        const pwd = prompt("Enter Admin Password to access dashboard:");
+        if (pwd) {
+            sessionStorage.setItem('adminToken', pwd);
+            window.location.href = '/admin';
+        } else {
+            showToast("Admin access cancelled.");
+        }
         return false;
     }
 

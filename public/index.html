@@ -14,6 +14,11 @@
         <div class="radar-title">OBJECT RADAR</div>
 
         <div class="top-actions">
+            <!-- BUZZER AUTO TOGGLE -->
+            <button id="btn-buzzer" type="button" title="Toggle Auto Buzzer" style="background:#555; color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer; margin-right: 10px;">
+                AUTO BUZZER: ON
+            </button>
+
             <!-- COMPACT BLUE CONNECT BUTTON (F5/F4 text hidden) -->
             <button id="btn-connect" type="button" title="Connect to Arduino (F5 or F4)">
                 <span id="btn-connect-icon">⚡</span>
@@ -54,6 +59,6 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-<script src="radar.js"></script>
+<script src="radar.js?v=3.0"></script>
 </body>
 </html>

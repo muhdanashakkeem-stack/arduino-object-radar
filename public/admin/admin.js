@@ -8,9 +8,6 @@ const elTeleAngle = document.getElementById('tele-angle');
 const elTeleDisplayAngle = document.getElementById('tele-display-angle');
 const elTeleDist = document.getElementById('tele-dist');
 const elTeleWarn = document.getElementById('tele-warn');
-
-const btnConnect = document.getElementById('btn-admin-connect');
-const btnDisconnect = document.getElementById('btn-admin-disconnect');
 const elLog = document.getElementById('admin-log');
 
 function log(msg) {
@@ -18,33 +15,83 @@ function log(msg) {
     elLog.textContent = `[${timestamp}] ${msg}\n` + elLog.textContent;
 }
 
-function getApiUrl(endpoint) {
-    const base = window.API_BASE_URL || localStorage.getItem('RADAR_BACKEND_URL') || '';
-    return `${base.replace(/\/+$/, '')}${endpoint}`;
+const BACKEND_URL = "https://arduino-object-radar.onrender.com";
+
+// Retrieve or prompt for Admin Token
+let adminToken = sessionStorage.getItem('adminToken');
+if (!adminToken) {
+    adminToken = prompt("Enter Admin Password:");
+    if (adminToken) {
+        sessionStorage.setItem('adminToken', adminToken);
+    } else {
+        alert("Admin access requires a password.");
+        window.location.href = '/';
+    }
 }
 
 /**
- * Fetch Hardware & Port Status
+ * Fetch Admin Data (Status & Telemetry combined)
  */
-async function fetchStatus() {
+async function fetchAdminData() {
+    if (!adminToken) return;
+    
     try {
-        const res = await fetch(getApiUrl('/api/status'), { cache: 'no-store' });
+        const res = await fetch(`${BACKEND_URL}/api/admin/status`, {
+            headers: { 'Authorization': `Bearer ${adminToken}` },
+            cache: 'no-store'
+        });
+        
+        if (res.status === 401) {
+            alert("Unauthorized: Invalid Admin Password");
+            sessionStorage.removeItem('adminToken');
+            window.location.href = '/';
+            return;
+        }
+        
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
 
+        // 1. API Status Update
         elStatusApi.textContent = 'Online';
         elStatusApi.style.color = '#3fb950';
 
-        if (data.connected) {
-            elStatusConn.textContent = 'CONNECTED';
+        // 2. Hardware/Cloud Status Update
+        const activeArduino = data.lastTelemetry.connected;
+        if (activeArduino) {
+            elStatusConn.textContent = 'DATA RECEIVING';
             elStatusConn.className = 'stat-value connected';
-            elStatusPort.textContent = data.port || 'Auto-detected';
-            elStatusBaud.textContent = data.baudRate || 9600;
+            elStatusPort.textContent = `Cloud Relay (Active Users: ${data.activeUsers})`;
+            elStatusBaud.textContent = `Last update: ${new Date(data.lastTelemetry.time).toLocaleTimeString()}`;
         } else {
-            elStatusConn.textContent = 'DISCONNECTED';
+            elStatusConn.textContent = 'WAITING FOR DATA';
             elStatusConn.className = 'stat-value disconnected';
-            elStatusPort.textContent = 'None';
-            elStatusBaud.textContent = data.baudRate || 9600;
+            elStatusPort.textContent = `Cloud Relay (Active Users: ${data.activeUsers})`;
+            elStatusBaud.textContent = 'No recent data';
+        }
+
+        // 3. Telemetry Update
+        if (activeArduino) {
+            const rawAngle = data.lastTelemetry.angle || 0;
+            const displayAngle = Math.max(0, Math.min(180, 180 - rawAngle));
+
+            elTeleAngle.textContent = `${rawAngle.toFixed(0)}°`;
+            elTeleDisplayAngle.textContent = `${displayAngle.toFixed(0)}°`;
+
+            if (data.lastTelemetry.distance > 0 && data.lastTelemetry.distance <= 150) {
+                elTeleDist.textContent = `${data.lastTelemetry.distance.toFixed(1)} cm`;
+            } else {
+                elTeleDist.textContent = '> 150 cm';
+            }
+
+            elTeleWarn.textContent = data.lastTelemetry.warning ? 'YES (DANGER)' : 'NO';
+            elTeleWarn.style.color = data.lastTelemetry.warning ? '#f85149' : '#3fb950';
+        } else {
+            elTeleAngle.textContent = '--°';
+            elTeleDisplayAngle.textContent = '--°';
+            elTeleDist.textContent = '--';
+            elTeleWarn.textContent = '--';
+            elTeleWarn.style.color = '#8b949e';
         }
     } catch (err) {
         elStatusApi.textContent = 'Offline';
@@ -54,89 +101,6 @@ async function fetchStatus() {
     }
 }
 
-/**
- * Fetch Live Radar Telemetry
- */
-async function fetchTelemetry() {
-    try {
-        const res = await fetch(getApiUrl('/api/radar'), { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (data.connected) {
-            const rawAngle = data.angle || 0;
-            const displayAngle = Math.max(0, Math.min(180, 180 - rawAngle));
-
-            elTeleAngle.textContent = `${rawAngle.toFixed(0)}°`;
-            elTeleDisplayAngle.textContent = `${displayAngle.toFixed(0)}°`;
-
-            if (data.distance > 0 && data.distance < 400) {
-                elTeleDist.textContent = `${data.distance.toFixed(1)} cm`;
-            } else {
-                elTeleDist.textContent = '> 400 cm';
-            }
-
-            elTeleWarn.textContent = data.warning ? 'YES (ALERT)' : 'NO';
-            elTeleWarn.style.color = data.warning ? '#f85149' : '#3fb950';
-        } else {
-            elTeleAngle.textContent = '--°';
-            elTeleDisplayAngle.textContent = '--°';
-            elTeleDist.textContent = '--';
-            elTeleWarn.textContent = '--';
-            elTeleWarn.style.color = '#8b949e';
-        }
-    } catch (err) {
-        // server offline
-    }
-}
-
-/**
- * Trigger Connect (calls POST /api/connect)
- */
-async function connectArduino() {
-    log('Requesting POST /api/connect...');
-    btnConnect.disabled = true;
-    try {
-        const res = await fetch(getApiUrl('/api/connect'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            cache: 'no-store'
-        });
-        const data = await res.json();
-        log(`Connect Response: ${JSON.stringify(data)}`);
-        fetchStatus();
-    } catch (err) {
-        log(`Connect error: ${err.message}`);
-    } finally {
-        btnConnect.disabled = false;
-    }
-}
-
-/**
- * Trigger Disconnect (calls POST /api/disconnect)
- */
-async function disconnectArduino() {
-    log('Requesting POST /api/disconnect...');
-    btnDisconnect.disabled = true;
-    try {
-        const res = await fetch(getApiUrl('/api/disconnect'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            cache: 'no-store'
-        });
-        const data = await res.json();
-        log(`Disconnect Response: ${JSON.stringify(data)}`);
-        fetchStatus();
-    } catch (err) {
-        log(`Disconnect error: ${err.message}`);
-    } finally {
-        btnDisconnect.disabled = false;
-    }
-}
-
-btnConnect.addEventListener('click', connectArduino);
-btnDisconnect.addEventListener('click', disconnectArduino);
-
 // Press F3 or Esc to return to main radar display
 window.addEventListener('keydown', (event) => {
     if (event.key === 'F3' || event.code === 'F3' || event.key === 'Escape') {
@@ -145,8 +109,8 @@ window.addEventListener('keydown', (event) => {
     }
 });
 
-// Initial Load & Intervals
-fetchStatus();
-fetchTelemetry();
-setInterval(fetchStatus, 1500);
-setInterval(fetchTelemetry, 100);
+// Initial Load & Interval
+if (adminToken) {
+    fetchAdminData();
+    setInterval(fetchAdminData, 1500);
+}
